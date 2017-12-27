@@ -1,0 +1,71 @@
+<resources>
+    <string name="app_name">登机桥检测系统</string>
+    <string-array name="language">
+        <item>中文</item>
+        <item>English</item>
+    </string-array>
+    <string name="ip_hint_cn">请输入服务器地址</string>
+    <string name="user_hint_cn">请输入用户名</string>
+    <string name="psd_hint_cn">请输入密码</string>
+    <string name="login_cn">登录</string>
+
+    <string name="ip_hint_eg">Please enter the server address</string>
+    <string name="user_hint_eg">Please enter your account</string>
+    <string name="psd_hint_eg">Please enter your password</string>
+    <string name="login_eg">Login</string>
+
+    <string name="title_cn">检测系统</string>
+    <string name="lang_cn">语言:</string>
+    <string name="show_cn">提示信息</string>
+    <string name="time_cn">剩余时间:</string>
+    <string name="result_cn">回答结果:</string>
+    <string name="status_cn">连接状态:</string>
+    <!--<string name="title_cn">暂停</string>
+    <string name="title_cn">退出</string>-->
+
+    <string name="title_eg">Detecting System</string>
+    <string name="lang_eg">Language:</string>
+    <string name="show_eg">Prompt information</string>
+    <string name="time_eg">Remaining time:</string>
+    <string name="result_eg">Answer result:</string>
+    <string name="status_eg">Connection state:</string>
+
+    <string name="status_on_cn">已连接</string>
+    <string name="status_off_cn">未连接</string>
+    <string name="status_on_eg">Connected</string>
+    <string name="status_off_eg">Disconnected</string>
+
+    <string name="conn_out_cn">与服务器的连接已断开，请先连接服务器！</string>
+    <string name="conn_out_eg">Connected out</string>
+
+    <string name="action_label_cn">已暂停</string>
+    <string name="action_label_eg">已启动</string>
+
+    <string name="action_pause_cn">已暂停</string>
+    <string name="action_start_cn">已启动</string>
+
+    <string name="action_pause_eg">Paused</string>
+    <string name="action_start_eg">Started</string>
+
+    <string name="exit_cn">退出</string>
+    <string name="exit_eg">Exit</string>
+
+    <string name="pause_cn">暂停</string>
+    <string name="pause_eg">Pause</string>
+    <string name="start_cn">启动</string>
+    <string name="start_eg">Start</string>
+
+    <string name="dialog_title_cn">提示</string>
+    <string name="dialog_pos_cn">确定</string>
+    <string name="dialog_neg_cn">取消</string>
+    <string name="dialog_content_cn">是否确定退出？</string>
+
+    <string name="dialog_title_eg">Warning</string>
+    <string name="dialog_pos_eg">Yes</string>
+    <string name="dialog_neg_eg">Cancel</string>
+    <string name="dialog_content_eg">Are you sure you want to quit?</string>
+
+    <string name="speek_null_cn">主人，你好像还没有说话哦！</string>
+    <string name="speek_null_eg">Master, you do not seem to be talking yet！</string>
+
+</resources>

@@ -65,45 +65,51 @@ public class LoginActivity extends AppCompatActivity {
     private boolean isUnConnect = false;
     private String ACTION_NAME = "com.example.lyw.androidsocket.broadcast";
     private String TAG = "mylog";
+    private String HEARTCONNTAG = "heartlog";
+    private final String CC00 = "CC00";//自定义id:Socket断开的消息
     private final String SC01 = "SC01";
     private final String SC02 = "SC02";
     private final String SC03 = "SC03";
     private final String SC04 = "SC04";
     private final String SC05 = "SC05";
     private final String SC06 = "SC06";
+    private final String SC08 = "SC08";
     private final String CC04 = "CC04";
     private final String CC05 = "CC05";
     private SC01MsgVo msgVo = null;
     private long sendTime = 0L;
-    private static final long HEART_BEAT_RATE = 30 * 1000;//心跳间隔,10s
-    private int COUNT_HEART_BEAT_RATE = 3;
+    private long lastReceiveHeartBeatTime = 0L;
+    private static final long HEART_BEAT_RATE = 15 * 1000;//心跳间隔,10s
+    private int COUNT_HEART_BEAT_RATE = 2;
     Handler handler=new Handler();
     private boolean isStopConnServer = false;//是否还需要尝试连接服务端
-    static int i = 0;
+    private static int i = 0;//当socket断开后，尝试连接的次数
     Runnable runnable=new Runnable() {
         @Override
         public void run() {
-
-            if(Config.lastReceiveHeartBeatTime != 0 && (System.currentTimeMillis() - Config
-                    .lastReceiveHeartBeatTime) >= HEART_BEAT_RATE
-                    * COUNT_HEART_BEAT_RATE){
-                Log.d(TAG,"socket is unconnect..");
-                isUnConnect = true;
-                Config.isCurrentStepGoing = false;
-                ConnectServer();
-                i++;
-                if(i == 3){
-                    Log.d(TAG,"isStopConnServer = true ");
-                    isStopConnServer = true;
-                    sendBroadcastToActivity("","");
+            if(!isStopConnServer){//isStopConnServer=true就停止线程
+                long diffTime = System.currentTimeMillis() - lastReceiveHeartBeatTime;
+                Log.d(HEARTCONNTAG,"lastReceiveHeartBeatTime is: " + lastReceiveHeartBeatTime);
+                Log.d(HEARTCONNTAG,"diffTime is: " + diffTime);
+                if(lastReceiveHeartBeatTime != 0 &&  diffTime>= HEART_BEAT_RATE * COUNT_HEART_BEAT_RATE){
+                    Log.d(HEARTCONNTAG,"socket is unconnect..");
+                    isUnConnect = true;
+                    Config.isCurrentStepGoing = false;
+                    ConnectServer();
+                    i++;
+                    if(i == 2){
+                        Log.d(HEARTCONNTAG,"isStopConnServer = true ");
+                        isStopConnServer = true;
+                        sendBroadcastToActivity(CC00,"");
+                    }
+                }else{
+                    //要做的事情
+                    String message = CC04 + "=[]";
+                    Log.d(HEARTCONNTAG,"send a heart beat..");
+                    sendMsg(message);
                 }
-            }else{
-                //要做的事情
-                String message = CC04 + "=[]";
-                Log.d(TAG,"send a heart beat..");
-                sendMsg(message);
+                handler.postDelayed(this, HEART_BEAT_RATE);
             }
-            handler.postDelayed(this, HEART_BEAT_RATE);
         }
     };
 
@@ -124,12 +130,18 @@ public class LoginActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if(action.equals(ACTION_NAME) && intent.getStringExtra("id").equals(SC03)){
-                //Config.isCurrentStepGoing = false;
+                //获取发音人
+                String getSpeakerStr = "CC08" + "=[]";
+                sendMsg(getSpeakerStr);
+                //获取服务端的状态
+                String getStatusStr = "CC09" + "=[]";
+                sendMsg(getStatusStr);
                 //2.跳转至MainActivity
                 Log.d(TAG,"to MainActivity...");
                 Intent i = new Intent(LoginActivity.this,MainActivity.class);
                 startActivity(i);
-                finish();
+                LoginActivity.this.finish();
+                Config.isCurrentStepGoing = false;
                 //1.开始发送心跳包
                 handler.postDelayed(runnable, HEART_BEAT_RATE);
             }
@@ -206,10 +218,10 @@ public class LoginActivity extends AppCompatActivity {
             public void run() {
                 Looper.prepare();
                 if(!isStopConnServer){
-                    Log.d(TAG,"start try to connect server!");
+                    Log.d(HEARTCONNTAG,"start try to connect server!");
                     CommunicateWithServer();
                 }else {
-                    Log.d(TAG,"already stop to connect server!");
+                    Log.d(HEARTCONNTAG,"already stop to connect server!");
                 }
             }
         });
@@ -229,9 +241,10 @@ public class LoginActivity extends AppCompatActivity {
                 password = passwordTv.getText().toString().trim();
             }
             socket = new Socket(ip,PORT);
-            if(socket.isConnected()){
-                Log.d(TAG,"connect server success!");
+            if(!socket.isConnected()){
+                return;
             }
+            Log.d(TAG,"connect server success!");
             bis = new BufferedInputStream(socket.getInputStream());
             dis = new DataInputStream(bis);
             byte[] bytes = new byte[1024*1024]; // 不用一次读取一个byte，否则会造成socket阻塞
@@ -244,12 +257,16 @@ public class LoginActivity extends AppCompatActivity {
 
             while (dis.read(bytes) != -1) {
                 ret += new String(bytes, "UTF-8");
-                //Log.d(TAG,"receive data is: " + ret);
+                ret = ret.substring(0,ret.indexOf("]") + 1);
+                Log.d(HEARTCONNTAG,"receive data is: " + ret);
                 //服务端消息	SC03	服务端返回登录状态
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC03) && ret.charAt
                 //        (ret.length() - 1) == ']'){
                 //Config.isCurrentStepGoing：确保客户端在接收消息之前，当前接收到的消息已处理完毕
-                if(!Config.isCurrentStepGoing && ret.startsWith("SC03=") && ret.contains("]")){
+                Log.d(HEARTCONNTAG,"!Config.isCurrentStepGoing is: " + !Config.isCurrentStepGoing);
+                if(!Config.isCurrentStepGoing && ret.length() != 0 && ret.startsWith("SC03=") && ret
+                        .contains("]")){
+                    //Log.d(TAG,"ret is: " + ret);
                     Config.isCurrentStepGoing = true;
                     //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
@@ -259,14 +276,13 @@ public class LoginActivity extends AppCompatActivity {
                     if(LoginBackVo.getMobileNumber().equals(username) && LoginBackVo.isAllowLogin()){
                         Log.d(TAG,"login success!");
                         saveUserInfo();
-
                         Config.sk = socket;
                         isUnConnect = false;
                         //向MainActivity发送登录成功的广播
                         sendBroadcastToActivity(SC03,"");
                     }else{
                         isUnConnect = true;
-                        ToastOnUI("登录失败！");
+                        //ToastOnUI("登录失败！");
                         Log.d(TAG,"login fail!");
                     }
                     ret = "";
@@ -274,7 +290,7 @@ public class LoginActivity extends AppCompatActivity {
                 //服务端消息	SC01	服务端广播当前步骤消息到已连接客户端
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC01) && ret.charAt(ret
                 //.length() - 1) == ']'){
-                if(!Config.isCurrentStepGoing && ret.startsWith("SC01=") && ret.contains("]")){
+                if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC01=") && ret.contains("]")){
                     Config.isCurrentStepGoing = true;
                     //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
@@ -290,15 +306,15 @@ public class LoginActivity extends AppCompatActivity {
                     sendBroadcastToActivity(SC01,s);
                     ret = "";
                 }
-                        /*
-                        * 服务端消息	SC05	服务端广播当前暂停/启动状态消息到客户端
-                                           true：暂停
-                                           false：启动
-                         */
+                /*
+                * 服务端消息	SC05	服务端广播当前暂停/启动状态消息到客户端
+                                   true：暂停
+                                   false：启动
+                 */
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC05) && ret.charAt(ret
                 //.length() - 1) == ']'){
-                if(!Config.isCurrentStepGoing && ret.startsWith("SC05=") && ret.contains("]")){
-                    Config.isCurrentStepGoing = true;
+                if(ret.length() != 0 && ret.startsWith("SC05=") && ret
+                        .contains("]")){
                     //String serverActionStr = ret.substring(6,ret.length() -1);
                     String serverActionStr = ret.substring(6,ret.indexOf("]"));
                     Log.d(TAG,"SC05 is : " + serverActionStr);
@@ -310,7 +326,7 @@ public class LoginActivity extends AppCompatActivity {
                 //服务端消息	SC06	服务端广播重复次数到后的文字提示消息到客户端
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC06) && ret.charAt(ret
                 // .length() - 1) == ']'){
-                if(!Config.isCurrentStepGoing && ret.startsWith("SC06=") && ret.contains("]")){
+                if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC06=") && ret.contains("]")){
                     Config.isCurrentStepGoing = true;
                     String warnStr = ret.substring(6,ret.indexOf("]"));
                     warnStr = getFromBase64(warnStr);
@@ -319,21 +335,31 @@ public class LoginActivity extends AppCompatActivity {
                     sendBroadcastToActivity(SC06,warnStr);
                     ret = "";
                 }
+
                 //服务端消息	SC04	服务端返回心跳连接当前时间
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC04) && ret.charAt(ret
                 //.length() - 1) == ']'){
-                if(ret.startsWith("SC04=") && ret.contains("]")){
-                    Log.d(TAG,"get a heart beat from server..");
-                    Config.lastReceiveHeartBeatTime = System.currentTimeMillis();
-                    Log.d(TAG,"Config.lastReceiveHeartBeatTime is: " + Config.lastReceiveHeartBeatTime);
+                if(ret.length() != 0 && ret.startsWith("SC04=") && ret.contains("]")){
+                    Log.d(HEARTCONNTAG,"get a heart beat from server..");
+                    lastReceiveHeartBeatTime = System.currentTimeMillis();
+                    Log.d(HEARTCONNTAG,"lastReceiveHeartBeatTime is: " + lastReceiveHeartBeatTime);
+                    ret = "";
+                }
+
+                //服务端消息	SC08	服务端广播语音朗读者信息到客户端
+                if(ret.length() != 0  && ret.startsWith("SC08=") && ret.contains("]")){
+                    String str = ret.substring(6,ret.indexOf("]"));
+                    Log.d(TAG,"SC08 is: " + str);
+
+                    sendBroadcastToActivity(SC08,str);
                     ret = "";
                 }
             }
         } catch(UnknownHostException e) {
-            ToastOnUI("socket通信失败！");
+            //ToastOnUI("socket通信失败！");
             Log.d(TAG,e + "");
         } catch(Exception e) {
-            ToastOnUI("socket通信失败！");
+            //ToastOnUI("socket通信失败！");
             Log.d(TAG,e + "");
         }
     }
@@ -346,6 +372,7 @@ public class LoginActivity extends AppCompatActivity {
                     os = socket.getOutputStream();
                     os.write(str.getBytes());
                     os.flush();
+                    Log.d(TAG,"str is: " + str);
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -429,5 +456,11 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mThread.interrupt();
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
     }
 }

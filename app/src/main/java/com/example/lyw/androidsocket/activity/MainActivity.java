@@ -177,7 +177,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //2.合成参数设置,详见《MSC Reference Manual》SpeechSynthesizer 类
         //设置发音人
         mTts.setParameter(SpeechConstant.LANGUAGE,"en_us");
-        //mTts.setParameter(SpeechConstant.VAD_BOS, "xiaoyan");
+        //mTts.setParameter(SpeechConstant.VAD_BOS, "1000");//超时设置
         /*发音人：
         * xiaolin:中英文（台湾普通话）
         * catherine：英文
@@ -191,7 +191,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         /*if(Config.speaker.trim().equals("")){
             Config.speaker = "xiaolin";
         }*/
-        mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan");
+        mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan");//默认“xiaoyan”
         //设置语速
         mTts.setParameter(SpeechConstant.SPEED, "50");
         //设置音量
@@ -275,10 +275,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //服务端动作：true：暂停；false:启动
         if (content.equals("True")) {//暂停：已启动状态，按钮显示的是“暂停”
             Log.d(PAUSETAG,"content is true");
-            pauseAction();
+            pauseAction();//暂停
         } else if (content.equals("False")) {//已暂停状态，按钮显示的是“启动”
             Log.d(PAUSETAG,"content is false");
-            resumeAction();
+            startAction();//开始或继续
         }
         Config.isCurrentStepGoing = false;
     }
@@ -287,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.d(TAG,"content is True..");
         boolean isSpeak1 = mTts.isSpeaking();
         Log.d(TAG,"isSpeak1 is: " + isSpeak1);
-        if(mTts != null && isSpeak1){
+        if(mTts != null){
             mTts.pauseSpeaking();
             Log.d(TAG,"pause speaking...");
         }
@@ -295,13 +295,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         isPause = true;
     }
 
-    public void resumeAction(){
+    public void startAction(){
         Log.d(TAG,"content is False..");
         boolean isSpeak2 = mTts.isSpeaking();
         Log.d(TAG,"isSpeak2 is: " + isSpeak2);
         if(mTts != null){
-            mTts.resumeSpeaking();
-            Log.d(TAG,"resume speaking...");
+            //mTts.resumeSpeaking();
+            Log.d(TAG,"start speaking..");
+            mTts.startSpeaking(showTv.getText().toString().trim(),mTtsListener);
         }
         pauseBt.setText(isChinese?getResources().getString(R.string.pause_cn):getResources().getString(R.string.pause_eg));
         isPause = false;
@@ -318,7 +319,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     //服务端消息	SC08	服务端广播语音朗读者信息到客户端
     public void SC08Action(String content){
-        Config.speaker = content;
+        //Config.speaker = content;
+        Config.speaker = "xiaoyan";
         Log.d(TAG,"Speaker is: " + content);
     }
 
@@ -576,7 +578,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             //pauseBt.setBackgroundColor(Color.rgb(102,205,170));
                             requestPauseOrStart(false);//启动
                             isPause = false;*/
-                            resumeAction();
+                            startAction();//开始或继续播放
                             requestPauseOrStart(false);//启动
                         }else {//已启动状态，按钮显示的是“暂停”
                             /*pauseBt.setText(isChinese?getResources().getString(R.string

@@ -95,13 +95,17 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d(HEARTCONNTAG,"socket is unconnect..");
                     isUnConnect = true;
                     Config.isCurrentStepGoing = false;
-                    ConnectServer();
+                    /*ConnectServer();
                     i++;
                     if(i == 2){
                         Log.d(HEARTCONNTAG,"isStopConnServer = true ");
                         isStopConnServer = true;
                         sendBroadcastToActivity(CC00,"");
-                    }
+                    }*/
+                    //不再重新登录连接socket
+                    Log.d(HEARTCONNTAG,"isStopConnServer = true ");
+                    isStopConnServer = true;
+                    sendBroadcastToActivity(CC00,"");
                 }else{
                     //要做的事情
                     String message = CC04 + "=[]";
@@ -249,9 +253,10 @@ public class LoginActivity extends AppCompatActivity {
             dis = new DataInputStream(bis);
             byte[] bytes = new byte[1024*1024]; // 不用一次读取一个byte，否则会造成socket阻塞
             sb = new StringBuffer();
-            String json = new Gson().toJson(new LoginBean(username,password));
+            //将username,password信息组合成json串
+            String loginJsonStr = new Gson().toJson(new LoginBean(username,password));
             //登录:客户端消息	CC03	客户端发送登录消息到服务端
-            loginStr = "CC03=[" + json + "]";
+            loginStr = "CC03=[" + loginJsonStr + "]";
             Log.d(TAG,"loginStr is: " + loginStr);
             sendMsg(loginStr);
 
@@ -264,6 +269,7 @@ public class LoginActivity extends AppCompatActivity {
                 //        (ret.length() - 1) == ']'){
                 //Config.isCurrentStepGoing：确保客户端在接收消息之前，当前接收到的消息已处理完毕
                 Log.d(HEARTCONNTAG,"!Config.isCurrentStepGoing is: " + !Config.isCurrentStepGoing);
+                String json = "";
                 if(!Config.isCurrentStepGoing && ret.length() != 0 && ret.startsWith("SC03=") && ret
                         .contains("]")){
                     //Log.d(TAG,"ret is: " + ret);
@@ -285,6 +291,7 @@ public class LoginActivity extends AppCompatActivity {
                         //ToastOnUI("登录失败！");
                         Log.d(TAG,"login fail!");
                     }
+                    Config.isCurrentStepGoing = false;//2018.02.28 Add
                     ret = "";
                 }
                 //服务端消息	SC01	服务端广播当前步骤消息到已连接客户端

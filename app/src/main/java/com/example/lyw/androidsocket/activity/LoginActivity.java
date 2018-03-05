@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -66,16 +67,6 @@ public class LoginActivity extends AppCompatActivity {
     private String ACTION_NAME = "com.example.lyw.androidsocket.broadcast";
     private String TAG = "mylog";
     private String HEARTCONNTAG = "heartlog";
-    private final String CC00 = "CC00";//自定义id:Socket断开的消息
-    private final String SC01 = "SC01";
-    private final String SC02 = "SC02";
-    private final String SC03 = "SC03";
-    private final String SC04 = "SC04";
-    private final String SC05 = "SC05";
-    private final String SC06 = "SC06";
-    private final String SC08 = "SC08";
-    private final String CC04 = "CC04";
-    private final String CC05 = "CC05";
     private SC01MsgVo msgVo = null;
     private long sendTime = 0L;
     private long lastReceiveHeartBeatTime = 0L;
@@ -84,6 +75,7 @@ public class LoginActivity extends AppCompatActivity {
     Handler handler=new Handler();
     private boolean isStopConnServer = false;//是否还需要尝试连接服务端
     private static int i = 0;//当socket断开后，尝试连接的次数
+    private IntentFilter myIntentFilter = null;
     Runnable runnable=new Runnable() {
         @Override
         public void run() {
@@ -94,7 +86,7 @@ public class LoginActivity extends AppCompatActivity {
                 if(lastReceiveHeartBeatTime != 0 &&  diffTime>= HEART_BEAT_RATE * COUNT_HEART_BEAT_RATE){
                     Log.d(HEARTCONNTAG,"socket is unconnect..");
                     isUnConnect = true;
-                    Config.isCurrentStepGoing = false;
+                    //Config.isCurrentStepGoing = false;
                     /*ConnectServer();
                     i++;
                     if(i == 2){
@@ -105,10 +97,10 @@ public class LoginActivity extends AppCompatActivity {
                     //不再重新登录连接socket
                     Log.d(HEARTCONNTAG,"isStopConnServer = true ");
                     isStopConnServer = true;
-                    sendBroadcastToActivity(CC00,"");
+                    sendBroadcastToActivity(Config.CC00,"");
                 }else{
                     //要做的事情
-                    String message = CC04 + "=[]";
+                    String message = Config.CC04 + "=[]";
                     Log.d(HEARTCONNTAG,"send a heart beat..");
                     sendMsg(message);
                 }
@@ -133,7 +125,7 @@ public class LoginActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if(action.equals(ACTION_NAME) && intent.getStringExtra("id").equals(SC03)){
+            if(action.equals(ACTION_NAME) && intent.getStringExtra("id").equals(Config.SC03)){
                 //获取发音人
                 String getSpeakerStr = "CC08" + "=[]";
                 sendMsg(getSpeakerStr);
@@ -145,18 +137,19 @@ public class LoginActivity extends AppCompatActivity {
                 Intent i = new Intent(LoginActivity.this,MainActivity.class);
                 startActivity(i);
                 LoginActivity.this.finish();
-                Config.isCurrentStepGoing = false;
+                //Config.isCurrentStepGoing = false;
                 //1.开始发送心跳包
                 handler.postDelayed(runnable, HEART_BEAT_RATE);
             }
         }
     };
 
+    //注册广播
     public void registerBoradcastReceiver(){
-        IntentFilter myIntentFilter = new IntentFilter();
+        myIntentFilter = new IntentFilter();
         myIntentFilter.addAction(ACTION_NAME);
-        //注册广播
-        registerReceiver(mBroadcastReceiver, myIntentFilter);
+        LocalBroadcastManager.getInstance(LoginActivity.this).registerReceiver(mBroadcastReceiver,
+                myIntentFilter);
     }
 
     private void setLanguage(){
@@ -268,15 +261,16 @@ public class LoginActivity extends AppCompatActivity {
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC03) && ret.charAt
                 //        (ret.length() - 1) == ']'){
                 //Config.isCurrentStepGoing：确保客户端在接收消息之前，当前接收到的消息已处理完毕
-                Log.d(HEARTCONNTAG,"!Config.isCurrentStepGoing is: " + !Config.isCurrentStepGoing);
+                //Log.d(HEARTCONNTAG,"!Config.isCurrentStepGoing is: " + !Config
+                // .isCurrentStepGoing);
                 String json = "";
-                if(!Config.isCurrentStepGoing && ret.length() != 0 && ret.startsWith("SC03=") && ret
-                        .contains("]")){
+                //if(!Config.isCurrentStepGoing && ret.length() != 0 && ret.startsWith("SC03=") &&ret.contains("]")){
+                if(ret.length() != 0 && ret.startsWith("SC03=") && ret.contains("]")){
                     //Log.d(TAG,"ret is: " + ret);
-                    Config.isCurrentStepGoing = true;
+                    //Config.isCurrentStepGoing = true;
                     //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
-                    Log.d(TAG,"SC03 is: " + json);
+                    //Log.d(TAG,"SC03 is: " + json);
 
                     LoginBackVo = new Gson().fromJson(json,LoginBackBean.class);
                     if(LoginBackVo.getMobileNumber().equals(username) && LoginBackVo.isAllowLogin()){
@@ -285,32 +279,34 @@ public class LoginActivity extends AppCompatActivity {
                         Config.sk = socket;
                         isUnConnect = false;
                         //向MainActivity发送登录成功的广播
-                        sendBroadcastToActivity(SC03,"");
+                        sendBroadcastToActivity(Config.SC03,"");
                     }else{
                         isUnConnect = true;
                         //ToastOnUI("登录失败！");
                         Log.d(TAG,"login fail!");
                     }
-                    Config.isCurrentStepGoing = false;//2018.02.28 Add
+                    //Config.isCurrentStepGoing = false;//2018.02.28 Add
                     ret = "";
                 }
                 //服务端消息	SC01	服务端广播当前步骤消息到已连接客户端
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC01) && ret.charAt(ret
                 //.length() - 1) == ']'){
-                if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC01=") && ret.contains("]")){
-                    Config.isCurrentStepGoing = true;
+                //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC01=")
+                       // && ret.contains("]")){
+                if(ret.length() != 0  && ret.startsWith("SC01=") && ret.contains("]")){
+                    //Config.isCurrentStepGoing = true;
                     //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
                     final String s = getFromBase64(json);
                     Log.d(TAG,"SC01 is: " + s);
-                    Log.d(TAG,"SC01 ,Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
+                    //Log.d(TAG,"SC01 ,Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
                     //向服务端反馈已接收到消息
                     msgVo = new Gson().fromJson(s,SC01MsgVo.class);
-                    String str = CC05 + "=[" + msgVo.getStepId() + "]";
+                    String str = Config.CC05 + "=[" + msgVo.getStepId() + "]";
                     sendMsg(str);
 
                     //向MainActivity发送服务端当前的步骤信息的广播
-                    sendBroadcastToActivity(SC01,s);
+                    sendBroadcastToActivity(Config.SC01,s);
                     ret = "";
                 }
                 /*
@@ -324,22 +320,24 @@ public class LoginActivity extends AppCompatActivity {
                         .contains("]")){
                     //String serverActionStr = ret.substring(6,ret.length() -1);
                     String serverActionStr = ret.substring(6,ret.indexOf("]"));
-                    Log.d(TAG,"SC05 is : " + serverActionStr);
-                    Log.d(TAG,"SC05 Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
+                    //Log.d(TAG,"SC05 is : " + serverActionStr);
+                    //Log.d(TAG,"SC05 Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
                     //向MainActivity发送服务端当前的暂停/启动状态的广播
-                    sendBroadcastToActivity(SC05,serverActionStr);
+                    sendBroadcastToActivity(Config.SC05,serverActionStr);
                     ret = "";
                 }
                 //服务端消息	SC06	服务端广播重复次数到后的文字提示消息到客户端
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC06) && ret.charAt(ret
                 // .length() - 1) == ']'){
-                if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC06=") && ret.contains("]")){
-                    Config.isCurrentStepGoing = true;
+                //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC06=")
+                       // && ret.contains("]")){
+                if(ret.length() != 0  && ret.startsWith("SC06=") && ret.contains("]")){
+                    //Config.isCurrentStepGoing = true;
                     String warnStr = ret.substring(6,ret.indexOf("]"));
                     warnStr = getFromBase64(warnStr);
                     Log.d(TAG,"SC06 is : " + warnStr);
                     //向MainActivity发送服务端当前的文字提示的广播
-                    sendBroadcastToActivity(SC06,warnStr);
+                    sendBroadcastToActivity(Config.SC06,warnStr);
                     ret = "";
                 }
 
@@ -356,9 +354,8 @@ public class LoginActivity extends AppCompatActivity {
                 //服务端消息	SC08	服务端广播语音朗读者信息到客户端
                 if(ret.length() != 0  && ret.startsWith("SC08=") && ret.contains("]")){
                     String str = ret.substring(6,ret.indexOf("]"));
-                    Log.d(TAG,"SC08 is: " + str);
-
-                    sendBroadcastToActivity(SC08,str);
+                    //Log.d(TAG,"SC08 is: " + str);
+                    sendBroadcastToActivity(Config.SC08,str);
                     ret = "";
                 }
             }
@@ -371,6 +368,11 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
+    //发送停止当前行为的广播
+    public void sendStopBroadcast(){
+        sendBroadcastToActivity(Config.CC00,"");
+    }
+
     public void sendMsg(final String str){
         new Thread(new Runnable() {
             @Override
@@ -379,7 +381,7 @@ public class LoginActivity extends AppCompatActivity {
                     os = socket.getOutputStream();
                     os.write(str.getBytes());
                     os.flush();
-                    Log.d(TAG,"str is: " + str);
+                    //Log.d(TAG,"str is: " + str);
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -393,7 +395,16 @@ public class LoginActivity extends AppCompatActivity {
         i.setAction(ACTION_NAME);
         i.putExtra("id",messageId);
         i.putExtra("content",content);
-        sendBroadcast(i);
+        //sendBroadcast(i);
+        //本地广播更高效，安全
+        LocalBroadcastManager.getInstance(LoginActivity.this).sendBroadcast(i);
+    }
+
+    //注销广播接收器
+    public void unRegisterBoradcastReceiver(){
+        if (null != myIntentFilter) {
+            LocalBroadcastManager.getInstance(LoginActivity.this).unregisterReceiver(mBroadcastReceiver);
+        }
     }
 
     public static String getFromBase64(String s) {
@@ -461,8 +472,21 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        registerBoradcastReceiver();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unRegisterBoradcastReceiver();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        unRegisterBoradcastReceiver();
         mThread.interrupt();
     }
 

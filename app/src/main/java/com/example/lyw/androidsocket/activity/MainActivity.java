@@ -17,6 +17,7 @@ import android.os.PersistableBundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -110,15 +111,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private String successStr = "已连接";
     private String failStr = "未连接";
     private Map<String,String> mIatResults = new HashMap();
-    private final String SC01 = "SC01";
-    private final String SC02 = "SC02";
-    private final String SC03 = "SC03";
-    private final String SC05 = "SC05";
-    private final String SC06 = "SC06";
-    private final String SC08 = "SC08";
-    private final String CC06 = "CC06";
-    private final String CC07 = "CC07";
-    private final String CC00 = "CC00";//自定义id:Socket断开的消息
     private OutputStream os = null;
     private boolean isNeedFeedback = false;
     private Handler mHandler = null;
@@ -145,6 +137,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private SpeechSynthesizer mTts = null;
     private long firstTime = 0L;
     private IntentFilter myIntentFilter,myIntentFilterHome;
+    private RecognizerDialog mDialog = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -227,19 +220,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             showTv(resultTv,"");
             showTv(timeTv,"");
             switch(currentId){
-                case SC01:
+                case Config.SC01:
                     SC01Action(content);//服务端消息	SC01	服务端广播当前步骤消息到已连接客户端
                     break;
-                case SC05:
+                case Config.SC05:
                     SC05Action(content);//服务端消息	SC05	服务端广播当前暂停/启动状态消息到客户端
                     break;
-                case SC06:
+                case Config.SC06:
                     SC06Action(content);//服务端消息	SC06	服务端广播重复次数到后的文字提示消息到客户端
                     break;
-                case SC08:
+                case Config.SC08:
                     SC08Action(content);//服务端消息	SC08	服务端广播语音朗读者信息到客户端
                     break;
-                case CC00://socket已经断开的广播
+                case Config.CC00://socket已经断开的广播
                     isConnect = false;
                     UnConnectServerAction();//与服务器已经断开时的界面显示
                     unRegisterBoradcastReceiver();
@@ -253,6 +246,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         }
                     }
                     break;
+                case Config.CC001://停止当前行为的广播
+                    //播放语音，等待回答，暂停
+                    //1.播放语音
+                    if(mTts != null && mTts.isSpeaking()){
+                        mTts.stopSpeaking();
+                    }
+                    //2.等待回答
+                    if(mDialog != null && mDialog.isShowing()){
+                        mDialog.dismiss();
+                    }
+                    //3.暂停
+                    pauseBt.callOnClick();
+                    break;
                 default:
                     break;
             }
@@ -265,7 +271,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         sc01MsgVo = new Gson().fromJson(content,SC01MsgVo.class);
         String str = "";
         str = isChinese?sc01MsgVo.getStepCNName():sc01MsgVo.getStepENName();
-        Log.d(TAG,"sc01 is : " + str);
+        //Log.d(TAG,"sc01 is : " + str);
         showTv(showTv,str);
         TTS(str);
     }
@@ -280,13 +286,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Log.d(PAUSETAG,"content is false");
             startAction();//开始或继续
         }
-        Config.isCurrentStepGoing = false;
+        //Config.isCurrentStepGoing = false;
     }
 
     public void pauseAction(){
-        Log.d(TAG,"content is True..");
+        //Log.d(TAG,"content is True..");
         boolean isSpeak1 = mTts.isSpeaking();
-        Log.d(TAG,"isSpeak1 is: " + isSpeak1);
+        //Log.d(TAG,"isSpeak1 is: " + isSpeak1);
         if(mTts != null){
             mTts.pauseSpeaking();
             Log.d(TAG,"pause speaking...");
@@ -333,6 +339,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onStop() {
         super.onStop();
+        unRegisterBoradcastReceiver();
         Log.d("testlog","onstop()..");
     }
 
@@ -341,11 +348,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void registerBoradcastReceiver(){
         myIntentFilter = new IntentFilter();
         myIntentFilter.addAction(ACTION_NAME);
-        registerReceiver(mBroadcastReceiver, myIntentFilter);
+        LocalBroadcastManager.getInstance(MainActivity.this).registerReceiver(mBroadcastReceiver,
+                myIntentFilter);
 
         myIntentFilterHome = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         registerReceiver(mBroadcastReceiverHome, myIntentFilterHome);
-
     }
 
 
@@ -686,12 +693,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 //Toast.makeText(MainActivity.this,"播放完成",Toast.LENGTH_SHORT).show();
                 isTTSEnd = true;
                 Log.d(TAG,"send cc07...");
-                String message = CC07 + "=[]";
+                String message = Config.CC07 + "=[]";
                 sendPauseMsg(message);
 
                 switch (currentId){
-                    case SC01:
-                        runOnUiThread(new Runnable() {
+                    case Config.SC01:
+                        /*runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 waitTime = sc01MsgVo.getWaitTime();
@@ -699,23 +706,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 isSpeaked =false;
                                 startCountDownTime(waitTime);
                             }
-                        });
+                        });*/
                         if(sc01MsgVo.getCommandType() == 1){
+                            //开始倒计时
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    waitTime = sc01MsgVo.getWaitTime();
+                                    timeTv.setText(waitTime + "s");
+                                    isSpeaked =false;
+                                    startCountDownTime(waitTime);
+                                }
+                            });
                             Log.d(TAG,"sc01 type is 1");
                             Feedback();
                         }else {
                             Log.d(TAG,"sc01 type is not 1");
-                            Config.isCurrentStepGoing = false;
+                            //Config.isCurrentStepGoing = false;
                         }
                         break;
-                    case SC06:
+                    case Config.SC06:
                         Feedback();
                         break;
                     default:
                         break;
                 }
             } else if (speechError != null) {
-                Config.isCurrentStepGoing = false;
+                //Config.isCurrentStepGoing = false;
                 //Toast.makeText(MainActivity.this,"播放失败",Toast.LENGTH_SHORT).show();
             }
         }
@@ -732,7 +749,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             STT();
         }else{
             //Toast.makeText(MainActivity.this,"请连接服务端！",Toast.LENGTH_SHORT).show();
-            Config.isCurrentStepGoing = false;
+            //Config.isCurrentStepGoing = false;
         }
     }
 
@@ -744,7 +761,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }else {
                     mTts.startSpeaking(getResources().getString(R.string.speek_null_eg), mTtsListener);
                 }
-                Config.isCurrentStepGoing = false;
+                //Config.isCurrentStepGoing = false;
             }else {
                 mTts.startSpeaking(content, mTtsListener);
             }
@@ -754,7 +771,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void STT(){
         showTv(resultTv,"");
         //1.创建RecognizerDialog对象
-        final RecognizerDialog mDialog = new RecognizerDialog(MainActivity.this, new InitListener() {
+        mDialog = new RecognizerDialog(MainActivity.this, new InitListener() {
             @Override
             public void onInit(int i) {
 
@@ -827,23 +844,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public void commitJSONtoServer(String str) {
-        if(currentId.equals(SC01)) {
+        if(currentId.equals(Config.SC01)) {
             if (sc01MsgVo != null) {
                 String json = new Gson().toJson(new FeedbackBean(sc01MsgVo.getStepId(), str));
                 feedbackStr = "CC01=[" + json + "]";
                 Log.d(TAG, "your speak is: " + feedbackStr);
                 sendMsg(feedbackStr);
             }
-        }else if (currentId.equals(SC06)) {
+        }else if (currentId.equals(Config.SC06)) {
             String feedStr = "";
             if(str.equals(FeedGoOn)){//继续
-                feedStr = CC06 + "=[" + 1 + "]";
+                feedStr = Config.CC06 + "=[" + 1 + "]";
             }else if(str.equals(FeedWait)){//等待
-                feedStr = CC06 + "=[" + 2 + "]";
+                feedStr = Config.CC06 + "=[" + 2 + "]";
             }else{//缺省值,超时或者除继续和等待外的回答
-                feedStr = CC06 + "=[" + 2 + "]";
+                feedStr = Config.CC06 + "=[" + 2 + "]";
             }
-            Log.d(TAG, "your feed is: " + feedbackStr);
+            Log.d(TAG, "your feed is: " + feedStr);
             sendMsg(feedStr);
         }
     }
@@ -855,7 +872,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     os = socket.getOutputStream();
                     os.write(str.getBytes());
                     os.flush();
-                    Config.isCurrentStepGoing = false;
+                    //Config.isCurrentStepGoing = false;
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -871,7 +888,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     os = socket.getOutputStream();
                     os.write(str.getBytes());
                     os.flush();
-                    Config.isCurrentStepGoing = false;//这里不可少，否则导致socket容易掉线
+                    //Config.isCurrentStepGoing = false;//这里不可少，否则导致socket容易掉线
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -922,11 +939,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //注销广播接收器
     public void unRegisterBoradcastReceiver(){
         if (null != myIntentFilter) {
-            unregisterReceiver(mBroadcastReceiver);
+            LocalBroadcastManager.getInstance(MainActivity.this).unregisterReceiver
+                    (mBroadcastReceiver);
         }
         if (null != myIntentFilterHome) {
             unregisterReceiver(mBroadcastReceiverHome);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerBoradcastReceiver();
     }
 
     @Override

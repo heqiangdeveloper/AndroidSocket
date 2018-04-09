@@ -22,6 +22,7 @@ import com.example.lyw.androidsocket.R;
 import com.example.lyw.androidsocket.bean.LoginBackBean;
 import com.example.lyw.androidsocket.bean.LoginBean;
 import com.example.lyw.androidsocket.bean.SC01MsgVo;
+import com.example.lyw.androidsocket.widget.BaseActivity;
 import com.google.gson.Gson;
 
 import java.io.BufferedInputStream;
@@ -35,7 +36,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import sun.misc.BASE64Decoder;
 
-public class LoginActivity extends AppCompatActivity {
+public class LoginActivity extends BaseActivity {
 
     @Bind(R.id.ip_tv)
     EditText ipTv;
@@ -70,7 +71,7 @@ public class LoginActivity extends AppCompatActivity {
     private SC01MsgVo msgVo = null;
     private long sendTime = 0L;
     private long lastReceiveHeartBeatTime = 0L;
-    private static final long HEART_BEAT_RATE = 15 * 1000;//心跳间隔,10s
+    private static final long HEART_BEAT_RATE = 30 * 1000;//心跳间隔,10s
     private int COUNT_HEART_BEAT_RATE = 2;
     Handler handler=new Handler();
     private boolean isStopConnServer = false;//是否还需要尝试连接服务端
@@ -191,7 +192,7 @@ public class LoginActivity extends AppCompatActivity {
                 break;
             case R.id.login_bt:
                 if (!checkInput()) return;
-                //mLoading.show();
+                mLoading.show();
                 ConnectServer();
                 break;
         }
@@ -218,6 +219,7 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d(HEARTCONNTAG,"start try to connect server!");
                     CommunicateWithServer();
                 }else {
+                    if(mLoading.isShowing()) mLoading.dismiss();
                     Log.d(HEARTCONNTAG,"already stop to connect server!");
                 }
             }
@@ -242,6 +244,7 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
             Log.d(TAG,"connect server success!");
+            if(mLoading.isShowing()) mLoading.dismiss();
             bis = new BufferedInputStream(socket.getInputStream());
             dis = new DataInputStream(bis);
             byte[] bytes = new byte[1024*1024]; // 不用一次读取一个byte，否则会造成socket阻塞
@@ -256,7 +259,7 @@ public class LoginActivity extends AppCompatActivity {
             while (dis.read(bytes) != -1) {
                 ret += new String(bytes, "UTF-8");
                 ret = ret.substring(0,ret.indexOf("]") + 1);
-                Log.d(HEARTCONNTAG,"receive data is: " + ret);
+                Log.d(TAG,"receive data is: " + ret);
                 //服务端消息	SC03	服务端返回登录状态
                 //if(ret.length() >= 4 && ret.substring(0,4).equals(SC03) && ret.charAt
                 //        (ret.length() - 1) == ']'){
@@ -294,6 +297,7 @@ public class LoginActivity extends AppCompatActivity {
                 //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC01=")
                        // && ret.contains("]")){
                 if(ret.length() != 0  && ret.startsWith("SC01=") && ret.contains("]")){
+                    //sendStopBroadcast();
                     //Config.isCurrentStepGoing = true;
                     //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
@@ -318,6 +322,7 @@ public class LoginActivity extends AppCompatActivity {
                 //.length() - 1) == ']'){
                 if(ret.length() != 0 && ret.startsWith("SC05=") && ret
                         .contains("]")){
+                    //sendStopBroadcast();
                     //String serverActionStr = ret.substring(6,ret.length() -1);
                     String serverActionStr = ret.substring(6,ret.indexOf("]"));
                     //Log.d(TAG,"SC05 is : " + serverActionStr);
@@ -332,6 +337,8 @@ public class LoginActivity extends AppCompatActivity {
                 //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC06=")
                        // && ret.contains("]")){
                 if(ret.length() != 0  && ret.startsWith("SC06=") && ret.contains("]")){
+                    //sendStopBroadcast();
+                    Config.isOverTime = true;
                     //Config.isCurrentStepGoing = true;
                     String warnStr = ret.substring(6,ret.indexOf("]"));
                     warnStr = getFromBase64(warnStr);
@@ -354,7 +361,7 @@ public class LoginActivity extends AppCompatActivity {
                 //服务端消息	SC08	服务端广播语音朗读者信息到客户端
                 if(ret.length() != 0  && ret.startsWith("SC08=") && ret.contains("]")){
                     String str = ret.substring(6,ret.indexOf("]"));
-                    //Log.d(TAG,"SC08 is: " + str);
+                    Log.d(TAG,"SC08 is: " + str);
                     sendBroadcastToActivity(Config.SC08,str);
                     ret = "";
                 }
@@ -362,15 +369,17 @@ public class LoginActivity extends AppCompatActivity {
         } catch(UnknownHostException e) {
             //ToastOnUI("socket通信失败！");
             Log.d(TAG,e + "");
+            if(mLoading.isShowing()) mLoading.dismiss();
         } catch(Exception e) {
             //ToastOnUI("socket通信失败！");
             Log.d(TAG,e + "");
+            if(mLoading.isShowing()) mLoading.dismiss();
         }
     }
 
     //发送停止当前行为的广播
     public void sendStopBroadcast(){
-        sendBroadcastToActivity(Config.CC00,"");
+        sendBroadcastToActivity(Config.CC001,"");
     }
 
     public void sendMsg(final String str){

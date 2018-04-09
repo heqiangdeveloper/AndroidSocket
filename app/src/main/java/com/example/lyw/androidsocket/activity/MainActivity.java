@@ -181,10 +181,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mTts.setParameter(SpeechConstant.VOICE_NAME, "catherine");
         }*/
         //mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaolin");
-        /*if(Config.speaker.trim().equals("")){
-            Config.speaker = "xiaolin";
-        }*/
+        if(Config.speaker.trim().equals("")){
+            Config.speaker = "xiaoyan";
+        }
         mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan");//默认“xiaoyan”
+        //mTts.setParameter(SpeechConstant.VOICE_NAME, Config.speaker);
         //设置语速
         mTts.setParameter(SpeechConstant.SPEED, "50");
         //设置音量
@@ -257,7 +258,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         mDialog.dismiss();
                     }
                     //3.暂停
-                    pauseBt.callOnClick();
+                    /*if(isPause){
+                        pauseBt.callOnClick();
+                    }*/
                     break;
                 default:
                     break;
@@ -305,6 +308,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.d(TAG,"content is False..");
         boolean isSpeak2 = mTts.isSpeaking();
         Log.d(TAG,"isSpeak2 is: " + isSpeak2);
+        //if(mTts != null && !Config.isOverTime){
         if(mTts != null){
             //mTts.resumeSpeaking();
             Log.d(TAG,"start speaking..");
@@ -312,6 +316,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         pauseBt.setText(isChinese?getResources().getString(R.string.pause_cn):getResources().getString(R.string.pause_eg));
         isPause = false;
+        Config.isOverTime = false;
     }
 
     //服务端消息	SC06	服务端广播重复次数到后的文字提示消息到客户端
@@ -325,8 +330,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     //服务端消息	SC08	服务端广播语音朗读者信息到客户端
     public void SC08Action(String content){
-        //Config.speaker = content;
-        Config.speaker = "xiaoyan";
+        Config.speaker = content;
+        //Config.speaker = "xiaoyan";
         Log.d(TAG,"Speaker is: " + content);
     }
 
@@ -943,7 +948,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     (mBroadcastReceiver);
         }
         if (null != myIntentFilterHome) {
-            unregisterReceiver(mBroadcastReceiverHome);
+            try {
+                unregisterReceiver(mBroadcastReceiverHome);
+            } catch (Exception e){
+                //do nothing
+            }
         }
     }
 

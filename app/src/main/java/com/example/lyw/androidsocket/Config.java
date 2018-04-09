@@ -27,4 +27,5 @@ public class Config {
     public static final String CC05 = "CC05";
     public static final String CC06 = "CC06";
     public static final String CC07 = "CC07";
+    public static  boolean isOverTime = false;//是否超时
 }

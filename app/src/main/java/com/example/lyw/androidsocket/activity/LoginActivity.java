@@ -9,14 +9,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
-
 import com.example.lyw.androidsocket.Config;
 import com.example.lyw.androidsocket.R;
 import com.example.lyw.androidsocket.bean.LoginBackBean;
@@ -24,13 +22,11 @@ import com.example.lyw.androidsocket.bean.LoginBean;
 import com.example.lyw.androidsocket.bean.SC01MsgVo;
 import com.example.lyw.androidsocket.widget.BaseActivity;
 import com.google.gson.Gson;
-
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-
 import butterknife.Bind;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
@@ -52,8 +48,6 @@ public class LoginActivity extends BaseActivity {
     ImageView clear_password_Iv;
     private SharedPreferences sp;
     private Socket socket = null;
-    //private String IP = "10.43.10.52";
-    private String IP = "";
     private int PORT = 9090;
     private BufferedInputStream bis = null;
     private DataInputStream dis = null;
@@ -64,47 +58,43 @@ public class LoginActivity extends BaseActivity {
     private LoginBackBean LoginBackVo;
     private boolean isChinese = true;
     private Thread mThread;
-    private boolean isUnConnect = false;
-    private String ACTION_NAME = "com.example.lyw.androidsocket.broadcast";
-    private String TAG = "mylog";
-    private String HEARTCONNTAG = "heartlog";
+    private boolean isUnConnect = false;//是否已断开连接
+    private String ACTION_NAME = "com.example.lyw.androidsocket.broadcast";//自定义广播
+    private String TAG = "mylog";//除心跳连接外的log
+    private String HEARTCONNTAG = "heartlog";//心跳连接的log
     private SC01MsgVo msgVo = null;
-    private long sendTime = 0L;
-    private long lastReceiveHeartBeatTime = 0L;
-    private static final long HEART_BEAT_RATE = 30 * 1000;//心跳间隔,10s
-    private int COUNT_HEART_BEAT_RATE = 2;
-    Handler handler=new Handler();
+    private long lastReceiveHeartBeatTime = 0L;//上次接收到服务端的心跳反馈的时间
+    private static final long HEART_BEAT_RATE = 30 * 1000;//心跳间隔,30s
+    private int COUNT_HEART_BEAT_RATE = 2;//心跳连接断开后，尝试连接的次数
+    private Handler handler = new Handler();
     private boolean isStopConnServer = false;//是否还需要尝试连接服务端
-    private static int i = 0;//当socket断开后，尝试连接的次数
     private IntentFilter myIntentFilter = null;
-    Runnable runnable=new Runnable() {
+
+    private Runnable runnable=new Runnable() {
         @Override
         public void run() {
             if(!isStopConnServer){//isStopConnServer=true就停止线程
+                //获取当前时间 与 上次接收到服务端的心跳反馈的时间的时间间隔diffTime
                 long diffTime = System.currentTimeMillis() - lastReceiveHeartBeatTime;
                 Log.d(HEARTCONNTAG,"lastReceiveHeartBeatTime is: " + lastReceiveHeartBeatTime);
                 Log.d(HEARTCONNTAG,"diffTime is: " + diffTime);
+                //如果时间间隔diffTime 超过了 心跳连接的尝试连接的时间（30s * 2次），就认为心跳连接已断开
                 if(lastReceiveHeartBeatTime != 0 &&  diffTime>= HEART_BEAT_RATE * COUNT_HEART_BEAT_RATE){
                     Log.d(HEARTCONNTAG,"socket is unconnect..");
+                    //标记心跳连接已断开
                     isUnConnect = true;
-                    //Config.isCurrentStepGoing = false;
-                    /*ConnectServer();
-                    i++;
-                    if(i == 2){
-                        Log.d(HEARTCONNTAG,"isStopConnServer = true ");
-                        isStopConnServer = true;
-                        sendBroadcastToActivity(CC00,"");
-                    }*/
                     //不再重新登录连接socket
-                    Log.d(HEARTCONNTAG,"isStopConnServer = true ");
                     isStopConnServer = true;
+                    Log.d(HEARTCONNTAG,"isStopConnServer = true ");
+                    //发送心跳连接已断开的全局广播
                     sendBroadcastToActivity(Config.CC00,"");
                 }else{
-                    //要做的事情
+                    //发出心跳连接的消息
                     String message = Config.CC04 + "=[]";
                     Log.d(HEARTCONNTAG,"send a heart beat..");
                     sendMsg(message);
                 }
+                //每隔指定的时间HEART_BEAT_RATE，发起一次心跳连接
                 handler.postDelayed(this, HEART_BEAT_RATE);
             }
         }
@@ -116,9 +106,9 @@ public class LoginActivity extends BaseActivity {
         setContentView(R.layout.acitive_login);
         ButterKnife.bind(this);
         sp = this.getSharedPreferences("account", MODE_PRIVATE);//如果存在则打开它，否则创建新的Preferences
-        setLanguage();
-        getUserInfo();
-        registerBoradcastReceiver();
+        setLanguage();//设置语言
+        getUserInfo();//获取用户信息，如果之前已经成功登录过，则自动填写用户信息
+        registerBoradcastReceiver();//注册广播
         isStopConnServer = false;
     }
 
@@ -126,6 +116,7 @@ public class LoginActivity extends BaseActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            //接收登录成功的广播
             if(action.equals(ACTION_NAME) && intent.getStringExtra("id").equals(Config.SC03)){
                 //获取发音人
                 String getSpeakerStr = "CC08" + "=[]";
@@ -138,14 +129,14 @@ public class LoginActivity extends BaseActivity {
                 Intent i = new Intent(LoginActivity.this,MainActivity.class);
                 startActivity(i);
                 LoginActivity.this.finish();
-                //Config.isCurrentStepGoing = false;
-                //1.开始发送心跳包
+                //30s后开始发送心跳包
                 handler.postDelayed(runnable, HEART_BEAT_RATE);
+                //handler.post(runnable);
             }
         }
     };
 
-    //注册广播
+    //注册本地广播，更快，高效，安全
     public void registerBoradcastReceiver(){
         myIntentFilter = new IntentFilter();
         myIntentFilter.addAction(ACTION_NAME);
@@ -153,6 +144,7 @@ public class LoginActivity extends BaseActivity {
                 myIntentFilter);
     }
 
+    //设置语言
     private void setLanguage(){
         String lang = sp.getString("language","");
         if(lang.length() == 0 || lang.equals("zh_cn")){
@@ -160,7 +152,7 @@ public class LoginActivity extends BaseActivity {
         }else{
             isChinese = false;
         }
-        initLables();
+        initLables();//初始化文本显示
     }
 
     private void initLables(){
@@ -181,18 +173,20 @@ public class LoginActivity extends BaseActivity {
     @OnClick({R.id.clear_ip_iv,R.id.clear_name_iv, R.id.clear_password_iv,R.id.login_bt})
     public void onclick(View v) {
         switch (v.getId()) {
-            case R.id.clear_name_iv:
+            case R.id.clear_name_iv://清除输入的用户名
                 userNameTv.setText("");
                 break;
-            case R.id.clear_password_iv:
+            case R.id.clear_password_iv://清除输入的密码
                 passwordTv.setText("");
                 break;
-            case R.id.clear_ip_iv:
+            case R.id.clear_ip_iv://清除输入的ip
                 ipTv.setText("");
                 break;
-            case R.id.login_bt:
+            case R.id.login_bt://点击登录
+                //检查输入的用户信息是否合法
                 if (!checkInput()) return;
                 mLoading.show();
+                //Socket通信尝试
                 ConnectServer();
                 break;
         }
@@ -230,15 +224,9 @@ public class LoginActivity extends BaseActivity {
     public void CommunicateWithServer(){
         try {
             String ip,username,password;
-            if(isUnConnect){
-                username = sp.getString("user_name", "");
-                password = sp.getString("password", "");
-                ip = sp.getString("ip", "");
-            }else{
-                ip = ipTv.getText().toString().trim();
-                username = userNameTv.getText().toString().trim();
-                password = passwordTv.getText().toString().trim();
-            }
+            ip = ipTv.getText().toString().trim();
+            username = userNameTv.getText().toString().trim();
+            password = passwordTv.getText().toString().trim();
             socket = new Socket(ip,PORT);
             if(!socket.isConnected()){
                 return;
@@ -260,25 +248,15 @@ public class LoginActivity extends BaseActivity {
                 ret += new String(bytes, "UTF-8");
                 ret = ret.substring(0,ret.indexOf("]") + 1);
                 Log.d(TAG,"receive data is: " + ret);
-                //服务端消息	SC03	服务端返回登录状态
-                //if(ret.length() >= 4 && ret.substring(0,4).equals(SC03) && ret.charAt
-                //        (ret.length() - 1) == ']'){
-                //Config.isCurrentStepGoing：确保客户端在接收消息之前，当前接收到的消息已处理完毕
-                //Log.d(HEARTCONNTAG,"!Config.isCurrentStepGoing is: " + !Config
-                // .isCurrentStepGoing);
                 String json = "";
-                //if(!Config.isCurrentStepGoing && ret.length() != 0 && ret.startsWith("SC03=") &&ret.contains("]")){
+                //服务端消息	SC03	服务端返回登录状态
                 if(ret.length() != 0 && ret.startsWith("SC03=") && ret.contains("]")){
-                    //Log.d(TAG,"ret is: " + ret);
-                    //Config.isCurrentStepGoing = true;
-                    //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
-                    //Log.d(TAG,"SC03 is: " + json);
-
+                    Log.d(TAG,"SC03 is: " + json);
                     LoginBackVo = new Gson().fromJson(json,LoginBackBean.class);
                     if(LoginBackVo.getMobileNumber().equals(username) && LoginBackVo.isAllowLogin()){
                         Log.d(TAG,"login success!");
-                        saveUserInfo();
+                        saveUserInfo();//保存用户信息
                         Config.sk = socket;
                         isUnConnect = false;
                         //向MainActivity发送登录成功的广播
@@ -288,23 +266,15 @@ public class LoginActivity extends BaseActivity {
                         //ToastOnUI("登录失败！");
                         Log.d(TAG,"login fail!");
                     }
-                    //Config.isCurrentStepGoing = false;//2018.02.28 Add
                     ret = "";
                 }
                 //服务端消息	SC01	服务端广播当前步骤消息到已连接客户端
-                //if(ret.length() >= 4 && ret.substring(0,4).equals(SC01) && ret.charAt(ret
-                //.length() - 1) == ']'){
-                //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC01=")
-                       // && ret.contains("]")){
                 if(ret.length() != 0  && ret.startsWith("SC01=") && ret.contains("]")){
-                    //sendStopBroadcast();
-                    //Config.isCurrentStepGoing = true;
-                    //json = ret.substring(6,ret.length()-1);
                     json = ret.substring(6,ret.indexOf("]"));
-                    final String s = getFromBase64(json);
+                    final String s = getFromBase64(json);//Base64解密
                     Log.d(TAG,"SC01 is: " + s);
-                    //Log.d(TAG,"SC01 ,Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
-                    //向服务端反馈已接收到消息
+
+                    //客户端消息 CC05  客户端发送当前步骤授受消到服务端，内容为接收的stepId
                     msgVo = new Gson().fromJson(s,SC01MsgVo.class);
                     String str = Config.CC05 + "=[" + msgVo.getStepId() + "]";
                     sendMsg(str);
@@ -318,30 +288,17 @@ public class LoginActivity extends BaseActivity {
                                    true：暂停
                                    false：启动
                  */
-                //if(ret.length() >= 4 && ret.substring(0,4).equals(SC05) && ret.charAt(ret
-                //.length() - 1) == ']'){
-                if(ret.length() != 0 && ret.startsWith("SC05=") && ret
-                        .contains("]")){
-                    //sendStopBroadcast();
-                    //String serverActionStr = ret.substring(6,ret.length() -1);
+                if(ret.length() != 0 && ret.startsWith("SC05=") && ret.contains("]")){
                     String serverActionStr = ret.substring(6,ret.indexOf("]"));
-                    //Log.d(TAG,"SC05 is : " + serverActionStr);
-                    //Log.d(TAG,"SC05 Config.isCurrentStepGoing is: " + Config.isCurrentStepGoing);
+                    Log.d(TAG,"SC05 is : " + serverActionStr);
                     //向MainActivity发送服务端当前的暂停/启动状态的广播
                     sendBroadcastToActivity(Config.SC05,serverActionStr);
                     ret = "";
                 }
                 //服务端消息	SC06	服务端广播重复次数到后的文字提示消息到客户端
-                //if(ret.length() >= 4 && ret.substring(0,4).equals(SC06) && ret.charAt(ret
-                // .length() - 1) == ']'){
-                //if(!Config.isCurrentStepGoing && ret.length() != 0  && ret.startsWith("SC06=")
-                       // && ret.contains("]")){
                 if(ret.length() != 0  && ret.startsWith("SC06=") && ret.contains("]")){
-                    //sendStopBroadcast();
-                    Config.isOverTime = true;
-                    //Config.isCurrentStepGoing = true;
                     String warnStr = ret.substring(6,ret.indexOf("]"));
-                    warnStr = getFromBase64(warnStr);
+                    warnStr = getFromBase64(warnStr);//Base64解密
                     Log.d(TAG,"SC06 is : " + warnStr);
                     //向MainActivity发送服务端当前的文字提示的广播
                     sendBroadcastToActivity(Config.SC06,warnStr);
@@ -349,11 +306,10 @@ public class LoginActivity extends BaseActivity {
                 }
 
                 //服务端消息	SC04	服务端返回心跳连接当前时间
-                //if(ret.length() >= 4 && ret.substring(0,4).equals(SC04) && ret.charAt(ret
-                //.length() - 1) == ']'){
                 if(ret.length() != 0 && ret.startsWith("SC04=") && ret.contains("]")){
-                    Log.d(HEARTCONNTAG,"get a heart beat from server..");
+                    //记录服务端返回心跳连接的时间
                     lastReceiveHeartBeatTime = System.currentTimeMillis();
+                    Log.d(HEARTCONNTAG,"get a heart beat from server..");
                     Log.d(HEARTCONNTAG,"lastReceiveHeartBeatTime is: " + lastReceiveHeartBeatTime);
                     ret = "";
                 }
@@ -377,11 +333,6 @@ public class LoginActivity extends BaseActivity {
         }
     }
 
-    //发送停止当前行为的广播
-    public void sendStopBroadcast(){
-        sendBroadcastToActivity(Config.CC001,"");
-    }
-
     public void sendMsg(final String str){
         new Thread(new Runnable() {
             @Override
@@ -390,7 +341,6 @@ public class LoginActivity extends BaseActivity {
                     os = socket.getOutputStream();
                     os.write(str.getBytes());
                     os.flush();
-                    //Log.d(TAG,"str is: " + str);
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -416,6 +366,7 @@ public class LoginActivity extends BaseActivity {
         }
     }
 
+    //Base64解密
     public static String getFromBase64(String s) {
         byte[] b = null;
         String result = null;
@@ -451,6 +402,7 @@ public class LoginActivity extends BaseActivity {
         editor.commit();
     }
 
+    //检查输入的内容是否合法
     public boolean checkInput() {
         String username = userNameTv.getText().toString().trim();
         String password = passwordTv.getText().toString().trim();
@@ -469,6 +421,8 @@ public class LoginActivity extends BaseActivity {
         }
         return true;
     }
+
+    //onNewIntent(Intent intent) 是Override Activity的父类方法，只有仅在点Home键退出Activity而再次启动新的Intent进来才被调用到;
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);

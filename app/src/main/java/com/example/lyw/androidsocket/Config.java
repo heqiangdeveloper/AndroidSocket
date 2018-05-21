@@ -15,7 +15,7 @@ public class Config {
     public static boolean isClientPause = false;
     public static String speaker = "xiaolin";
     public static final String CC00 = "CC00";//自定义id:Socket断开的消息
-    public static final String CC001 = "CC001";//自定义id:停止当前行为的消息
+    //public static final String CC001 = "CC001";//自定义id:停止当前行为的消息
     public static final String SC01 = "SC01";
     public static final String SC02 = "SC02";
     public static final String SC03 = "SC03";

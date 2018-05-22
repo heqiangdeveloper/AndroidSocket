@@ -649,7 +649,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                     startCountDownTime(waitTime);
                                 }
                             });
-                        }else {//语音提示获取PLC
+                            Log.d(TAG,"sc01 type is 2");
+                        }else if(sc01MsgVo.getCommandType() == 4){//获取PLC后语音提示
                             input_Ll.setVisibility(View.GONE);
                             //开始倒计时
                             runOnUiThread(new Runnable() {
@@ -660,7 +661,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                     startCountDownTime(waitTime);
                                 }
                             });
-                            Log.d(TAG,"sc01 type is not 1");
+                            Log.d(TAG,"sc01 type is 4");
+                        }else {//语音提示获取PLC  ,  语音提示
+                            input_Ll.setVisibility(View.GONE);
+                            //开始倒计时
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    timeTv.setText(waitTime + "s");
+                                    isSpeaked =false;
+                                    startCountDownTime(waitTime);
+                                }
+                            });
+                            Log.d(TAG,"sc01 type is 3 或 0");
                         }
                         break;
                     case Config.SC06:
